@@ -1,9 +1,20 @@
-//#include <EEPROM.h>
+#include <EEPROM.h>
 #include <Wire.h>
 const int MPU_addr=0x68;  // I2C address of the MPU-6050
+int16_t  Accel[3];
 uint32_t myTimer=0;
 int last_state = 0;
-int16_t  Accel[3];
+
+//EEPROM ++
+int16_t EEMEM tf_step_addr;
+int16_t tf_step = 0;
+
+uint32_t EEMEM history_time_addr[150];
+uint32_t history_time[150];
+
+byte EEMEM history_values_addr[150];
+byte history_values[150];
+//EEPROM --
 
 void setup(){
   Wire.begin();
@@ -12,14 +23,22 @@ void setup(){
   Wire.write(0);     // set to zero (wakes up the MPU-6050)
   Wire.endTransmission(true);
   Serial.begin(9600);
-}
-
-void report(uint32_t m_current)
-{
-  Serial.print(m_current);
-  Serial.print(';');
-  Serial.print(get_state());
-  Serial.print('\n');
+  get_acc();
+  get_state();
+  //tf_step = EEPROM.read(0);
+  EEPROM.get((int)&tf_step_addr, tf_step);
+  EEPROM.get((int)&history_values_addr, history_values);
+  EEPROM.get((int)&history_time_addr, history_time);
+  
+  Serial.print("tf_step ");
+  Serial.println(tf_step);
+  Serial.print("\n");
+  Serial.print("history_values\n");
+  for (int i=0;i<tf_step;i++) {Serial.print(history_values[i]);Serial.print(" ");}
+  Serial.print("history_time\n");
+  for (int i=0;i<tf_step;i++) {Serial.print(history_time[i]);Serial.print(" ");}
+  Serial.print("\n");
+  
 }
 
 int get_state()
@@ -62,7 +81,7 @@ int get_state()
   states[11][0]=14668;
   states[11][1]=7336;
   states[11][2]=-40;
-    
+  
   //compare
   int min_sum = 65000;
   int min_diff = 0;
@@ -79,7 +98,7 @@ int get_state()
 }
 
 void get_acc()
-{  
+{
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x3B);  // starting with register 0x3B (ACCEL_XOUT_H)
   Wire.endTransmission(false);
@@ -89,17 +108,46 @@ void get_acc()
   Accel[2]=Wire.read()<<8|Wire.read();  // 0x3F (ACCEL_ZOUT_H) & 0x40 (ACCEL_ZOUT_L)
 }
 
+void flush_data(uint32_t m_current)
+{
+  for (int i=0;i<tf_step;i++)
+  {
+    Serial.print(history_time[i]);
+    Serial.print(';');
+    Serial.print(history_values[i]);
+    Serial.print('\n');
+    history_values[i]=0;
+    history_time[i]=0;    
+  }
+  tf_step = 0;
+  //EEPROM.update(0, tf_step);
+  EEPROM.put((int)&tf_step_addr, tf_step);
+}
+
 void loop(){
-    uint32_t m_current = millis();
-    if ( m_current - myTimer > 1000 ) 
+  uint32_t m_current = millis();
+  if ( m_current - myTimer > 10000 ) 
+  {
+    get_acc();
+    int cur_state = get_state();
+    if (last_state!=cur_state) 
     {
-      get_acc();
-      int cur_state = get_state();
-      if (last_state!=cur_state) 
-      {
-        last_state=cur_state;
-        report(m_current);
-      }
       myTimer = m_current;
+      Serial.print(cur_state);Serial.print(" ");
+      last_state=cur_state;      
+      //EEPROM.update(0, tf_step);
+      EEPROM.put((int)&tf_step_addr, tf_step);
+      Serial.print("tf_step ");Serial.print(tf_step);Serial.print('\n');
+      history_values[tf_step]=cur_state;      
+      EEPROM.put((int)&history_values_addr, history_values);
+      history_time[tf_step]=m_current;
+      EEPROM.put((int)&history_time_addr, history_time);
+      tf_step++;
+      //if (tf_step>150) tf_step=0;
     }
+  }
+  while (Serial.available() > 0)
+  {
+    if (Serial.read() == 'a') flush_data(m_current);
+  }
 }
