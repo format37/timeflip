@@ -1,11 +1,9 @@
+//#include <EEPROM.h>
 #include <Wire.h>
 const int MPU_addr=0x68;  // I2C address of the MPU-6050
 uint32_t myTimer=0;
 int last_state = 0;
 int16_t  Accel[3];
-unsigned char history_values[256];
-unsigned char history_time[256];
-unsigned char history_step =0;
 
 void setup(){
   Wire.begin();
@@ -16,26 +14,12 @@ void setup(){
   Serial.begin(9600);
 }
 
-void report_current(uint32_t m_current)
+void report(uint32_t m_current)
 {
-  Serial.print(m_current/1000);
+  Serial.print(m_current);
   Serial.print(';');
   Serial.print(get_state());
   Serial.print('\n');
-}
-
-void report_full()
-{
-  for (unsigned char i=0;i<history_step;i++)
-  {
-    Serial.print(history_time[i]);
-    Serial.print(';');
-    Serial.print(history_values[i]);
-    Serial.print('\n');
-    history_values[i]=12;
-    history_time[i]=0;    
-  }
-  history_step = 0;
 }
 
 int get_state()
@@ -114,12 +98,8 @@ void loop(){
       if (last_state!=cur_state) 
       {
         last_state=cur_state;
-        history_values[history_step]=cur_state;
-        history_time[history_step]=m_current/1000;
-        history_step++;
-        report_current(m_current);
+        report(m_current);
       }
       myTimer = m_current;
     }
-    while (Serial.available() > 0) if (Serial.read() == 'a') report_full();
 }
