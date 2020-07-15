@@ -1,10 +1,10 @@
 #include <Wire.h>
 const int MPU_addr=0x68;  // I2C address of the MPU-6050
-uint32_t myTimer=0;
+unsigned long myTimer=0;
 int last_state = 0;
 int16_t  Accel[3];
 unsigned char history_values[256];
-unsigned char history_time[256];
+unsigned int history_time[256];
 unsigned char history_step =0;
 
 void setup(){
@@ -106,7 +106,7 @@ void get_acc()
 }
 
 void loop(){
-    uint32_t m_current = millis();
+    unsigned long m_current = millis();
     if ( m_current - myTimer > 1000 ) 
     {
       get_acc();
