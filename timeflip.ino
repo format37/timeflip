@@ -107,7 +107,7 @@ void get_acc()
 
 void loop(){
     unsigned long m_current = millis();
-    if ( m_current - myTimer > 1000 ) 
+    if ( m_current - myTimer > 60000 ) 
     {
       get_acc();
       int cur_state = get_state();
